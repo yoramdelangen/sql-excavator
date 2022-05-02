@@ -12,53 +12,55 @@ import (
 // - https://github.com/laravel/framework/tree/9.x/src/Illuminate/Database -- Query language for Mysql, SQL Server, PostgreSQL
 
 var (
-  StarClause string = "*"
-  Space rune = ' '
-  Separator rune = ','
+	StarClause string = "*"
+	Space      rune   = ' '
+	Separator  rune   = ','
 )
 
 type SqlGrammar struct {
-  // TODO: setup setting
-  // Rune used to escape table and columns.
-  QuoteRune rune
+	// TODO: setup setting
+	// Rune used to escape table and columns.
+	QuoteRune          rune
+	BindingPlaceholder rune
 
-  // Whats the "SELECT" named.
-  SelectClause []byte
+	// Simple clause names
+	SelectClause []byte
+	FromClause   []byte
+	WhereClause  []byte
+	AndClause    []byte
+	OrClause     []byte
 
-  // Whats the "FROM" named.
-  FromClause []byte
-
-  // PaginationClause; "LIMIT {limit} OFFSET {offset}"
-  PaginateClause string
+	// PaginationClause; "LIMIT {limit} OFFSET {offset}"
+	PaginateClause string
 }
 
 func (s *SqlGrammar) Table(b *str.Builder, name string) {
-  s.wrapQuote(b, name)
+	s.wrapQuote(b, name)
 }
 
-func (s *SqlGrammar) AddColumn(b *str.Builder, column string){
-  if column == StarClause {
-    b.WriteString(StarClause)
-    return
-  }
+func (s *SqlGrammar) AddColumn(b *str.Builder, column string) {
+	if column == StarClause {
+		b.WriteString(StarClause)
+		return
+	}
 
-  // TODO: Check for functions usage.
-  // TODO: Check for aliases/table prefixes
-  s.wrapQuote(b, column)
+	// TODO: Check for functions usage.
+	// TODO: Check for aliases/table prefixes
+	s.wrapQuote(b, column)
 }
 
 func (s *SqlGrammar) Where(column string, args ...interface{}) {
-  // WHERE statement
-  fmt.Printf("Where column %s has arguments %s", column, args)
+	// WHERE statement
+	fmt.Printf("Where column %s has arguments %s", column, args)
 }
 
 func (s *SqlGrammar) Paginate(b *str.Builder, offset int, limit uint) {
-  b.WriteRune(Space)
-  b.WriteString(fmt.Sprintf(s.PaginateClause, offset, limit))
+	b.WriteRune(Space)
+	b.WriteString(fmt.Sprintf(s.PaginateClause, offset, limit))
 }
 
 func (s *SqlGrammar) wrapQuote(b *str.Builder, val string) {
-  b.WriteRune(s.QuoteRune)
-  b.WriteString(val)
-  b.WriteRune(s.QuoteRune)
+	b.WriteRune(s.QuoteRune)
+	b.WriteString(val)
+	b.WriteRune(s.QuoteRune)
 }

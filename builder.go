@@ -1,6 +1,7 @@
 package sql_excavator
 
 import (
+	"bytes"
 	"fmt"
 	str "strings"
 
@@ -14,14 +15,15 @@ func NewBuilder(dialect string) *Builder {
 }
 
 type Builder struct {
-	grammar SqlGrammar
-	table   string
-	wheres  []grammars.Where
-	join    []grammars.Join
-	columns []string
-	orderBy []string
-	limit   uint
-	offset  int
+	grammar  SqlGrammar
+	table    string
+	wheres   []grammars.Where
+	join     []grammars.Join
+	columns  []string
+	orderBy  []string
+	bindings []interface{}
+	limit    uint
+	offset   int
 }
 
 func typeof(v interface{}) string {
@@ -41,7 +43,7 @@ func (r *Builder) reset() {
 // It will follow a certain structure for building up the query.
 // The content of this function will probably be moved to the
 // grammar file because the order of operations can change per dialece.
-func (r *Builder) Sql() string {
+func (r *Builder) Sql() (string, []interface{}) {
 	var b *str.Builder = &str.Builder{}
 
 	b.Write(r.grammar.SelectClause)
@@ -60,7 +62,7 @@ func (r *Builder) Sql() string {
 		r.grammar.Paginate(b, r.offset, r.limit)
 	}
 
-	return b.String()
+	return b.String(), r.bindings
 }
 
 // Basically the start for a new query. On every call it will call function `reset` to reset the current instance.
@@ -89,8 +91,14 @@ func (r *Builder) AddSelect(columns ...string) *Builder {
 	return r
 }
 
+// Add a simple WHERE clause statement. WHen having only 2 arguments (include column) it will equally
+// be to equal sign and generates with operator equal. Otherwise it will use the operator
+// given as second argument and value as third argument.
+// When having more then 3 total arguments it will panic.
 func (r *Builder) Where(column string, args ...interface{}) *Builder {
-	fmt.Printf("Where Type: %#v == %d \n", args, len(args))
+	if len(args) > 2 {
+		panic("Where cannot have more then 3 arguments")
+	}
 
 	value := args[0]
 	operator := []byte("=")
@@ -156,23 +164,44 @@ func (r *Builder) createSelect(b *str.Builder) {
 }
 
 func (r *Builder) createWhere(b *str.Builder) {
-  if len(r.wheres) == 0 {
-    return
-  }
+	if len(r.wheres) == 0 {
+		return
+	}
 
-  b.WriteString("WHERE ")
+	b.WriteRune(Space)
+	b.Write(r.grammar.WhereClause)
 
-  for _, where := range r.wheres {
-    fmt.Printf("WHERE: %+v\n", where)
-    // Lets start with the basic type and only add with AND
-    for i, clause := range where.GetClauses() {
-      // Just normal WHERE and AND statement
-      if clause.WhereType == grammars.WhereType.AND {
-      }
+	x := 0
+	for _, where := range r.wheres {
+		fmt.Printf("WHERE: %+v\n", where)
+		// Lets start with the basic type and only add with AND
+		for i, clause := range where.GetClauses() {
+			if i == 0 && x > 0 {
+				b.WriteRune(Space)
 
-      fmt.Printf("Clause: %+v\n", clause)
-    }
-  }
+				if bytes.Equal(clause.WhereType, grammars.WhereType.AND) {
+					b.Write(r.grammar.AndClause)
+				} else if bytes.Equal(clause.WhereType, grammars.WhereType.OR) {
+					b.Write(r.grammar.OrClause)
+				}
+			}
 
-  fmt.Printf("QueryBuilder: %#v", r.wheres)
+			b.WriteRune(Space)
+			// TODO: should wrap the column
+			b.WriteString(clause.Column)
+			b.WriteRune(Space)
+			b.Write(clause.Operator)
+			b.WriteRune(Space)
+
+			// Write placeholder..
+			b.WriteRune(r.grammar.BindingPlaceholder)
+
+			r.bindings = append(r.bindings, where.GetBindings()...)
+		}
+		x++
+	}
+	fmt.Println("")
+	fmt.Println("")
+
+	fmt.Printf("QueryBuilder: %#v\n\n", r.bindings)
 }
