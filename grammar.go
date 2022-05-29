@@ -3,6 +3,8 @@ package sql_excavator
 import (
 	"fmt"
 	str "strings"
+
+	"github.com/yoramdelangen/sql-excavator/grammars"
 )
 
 // Inspiration:
@@ -13,6 +15,7 @@ import (
 
 var (
 	StarClause string = "*"
+	Nested     string = "(%s)"
 	Space      rune   = ' '
 	Separator  rune   = ','
 )
@@ -22,13 +25,18 @@ type SqlGrammar struct {
 	// Rune used to escape table and columns.
 	QuoteRune          rune
 	BindingPlaceholder rune
+	Operators          []rune
 
 	// Simple clause names
-	SelectClause []byte
-	FromClause   []byte
-	WhereClause  []byte
-	AndClause    []byte
-	OrClause     []byte
+	SelectClause string
+	FromClause   string
+	WhereClause  string
+	AndClause    string
+	OrClause     string
+
+	NullValue      string
+	IsNullValue    string
+	IsNotNullValue string
 
 	// PaginationClause; "LIMIT {limit} OFFSET {offset}"
 	PaginateClause string
@@ -49,14 +57,33 @@ func (s *SqlGrammar) AddColumn(b *str.Builder, column string) {
 	s.wrapQuote(b, column)
 }
 
-func (s *SqlGrammar) Where(column string, args ...interface{}) {
-	// WHERE statement
-	fmt.Printf("Where column %s has arguments %s", column, args)
-}
-
 func (s *SqlGrammar) Paginate(b *str.Builder, offset int, limit uint) {
 	b.WriteRune(Space)
 	b.WriteString(fmt.Sprintf(s.PaginateClause, offset, limit))
+}
+
+func (s *SqlGrammar) CompileWhere(b *str.Builder, where grammars.WhereClause) bool {
+  hasBindings := false
+
+	// TODO: should wrap the column
+	b.WriteString(where.Column)
+	b.WriteRune(Space)
+
+	if where.Type == grammars.BindingType.NULL {
+		b.WriteString(s.IsNullValue)
+	} else if where.Type == grammars.BindingType.NOT_NULL {
+		b.WriteString(s.IsNotNullValue)
+	} else if where.Type == grammars.BindingType.RAW {
+    // TODO: query raw
+	} else {
+    hasBindings = true
+    b.Write(where.Operator)
+    b.WriteRune(Space)
+    // TODO: Numeric bindings
+    b.WriteRune(s.BindingPlaceholder)
+  }
+
+  return hasBindings
 }
 
 func (s *SqlGrammar) wrapQuote(b *str.Builder, val string) {

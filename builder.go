@@ -1,7 +1,6 @@
 package sql_excavator
 
 import (
-	"bytes"
 	"fmt"
 	str "strings"
 
@@ -46,7 +45,7 @@ func (r *Builder) reset() {
 func (r *Builder) Sql() (string, []interface{}) {
 	var b *str.Builder = &str.Builder{}
 
-	b.Write(r.grammar.SelectClause)
+	b.WriteString(r.grammar.SelectClause)
 	// TODO: Adding columns
 	r.createSelect(b)
 	r.createFrom(b)
@@ -108,14 +107,12 @@ func (r *Builder) Where(column string, args ...interface{}) *Builder {
 		value = args[1]
 	}
 
-	r.wheres = append(r.wheres, grammars.Where{}.Or(column, operator, value))
+	r.wheres = append(r.wheres, grammars.Where{}.And(column, operator, value))
 
 	return r
 }
 
 func (r *Builder) OrWhere(column string, args ...interface{}) *Builder {
-	fmt.Printf("Where Or Type: %#v %T\n", args, args[2])
-
 	value := args[0]
 	operator := []byte("=")
 
@@ -126,6 +123,30 @@ func (r *Builder) OrWhere(column string, args ...interface{}) *Builder {
 
 	r.wheres = append(r.wheres, grammars.Where{}.Or(column, operator, value))
 
+	return r
+}
+
+// Set when column is null
+func (r *Builder) WhereNull(column string) *Builder {
+	r.wheres = append(r.wheres, grammars.Where{}.Null(column, grammars.BooleanType.AND))
+	return r
+}
+
+// Or when column is null
+func (r *Builder) OrWhereNull(column string) *Builder {
+	r.wheres = append(r.wheres, grammars.Where{}.Null(column, grammars.BooleanType.OR))
+	return r
+}
+
+// Set when column is null
+func (r *Builder) WhereNotNull(column string) *Builder {
+	r.wheres = append(r.wheres, grammars.Where{}.NotNull(column, grammars.BooleanType.AND))
+	return r
+}
+
+// Or when column is null
+func (r *Builder) OrWhereNotNull(column string) *Builder {
+	r.wheres = append(r.wheres, grammars.Where{}.NotNull(column, grammars.BooleanType.OR))
 	return r
 }
 
@@ -140,7 +161,7 @@ func (r *Builder) Paginate(page uint, limit uint) *Builder {
 // Create the FROM clause
 func (r *Builder) createFrom(b *str.Builder) {
 	b.WriteRune(Space)
-	b.Write(r.grammar.FromClause)
+	b.WriteString(r.grammar.FromClause)
 	b.WriteRune(Space)
 }
 
@@ -169,39 +190,33 @@ func (r *Builder) createWhere(b *str.Builder) {
 	}
 
 	b.WriteRune(Space)
-	b.Write(r.grammar.WhereClause)
+	b.WriteString(r.grammar.WhereClause)
 
 	x := 0
 	for _, where := range r.wheres {
-		fmt.Printf("WHERE: %+v\n", where)
 		// Lets start with the basic type and only add with AND
 		for i, clause := range where.GetClauses() {
 			if i == 0 && x > 0 {
 				b.WriteRune(Space)
 
-				if bytes.Equal(clause.WhereType, grammars.WhereType.AND) {
-					b.Write(r.grammar.AndClause)
-				} else if bytes.Equal(clause.WhereType, grammars.WhereType.OR) {
-					b.Write(r.grammar.OrClause)
+				if clause.BooleanType == grammars.BooleanType.AND {
+					b.WriteString(r.grammar.AndClause)
+				} else if clause.BooleanType == grammars.BooleanType.OR {
+					b.WriteString(r.grammar.OrClause)
 				}
 			}
 
 			b.WriteRune(Space)
-			// TODO: should wrap the column
-			b.WriteString(clause.Column)
-			b.WriteRune(Space)
-			b.Write(clause.Operator)
-			b.WriteRune(Space)
 
-			// Write placeholder..
-			b.WriteRune(r.grammar.BindingPlaceholder)
+      hasBindings := r.grammar.CompileWhere(b, clause)
+
+			// continue when type was RAW
+			if hasBindings == false {
+				continue
+			}
 
 			r.bindings = append(r.bindings, where.GetBindings()...)
 		}
 		x++
 	}
-	fmt.Println("")
-	fmt.Println("")
-
-	fmt.Printf("QueryBuilder: %#v\n\n", r.bindings)
 }

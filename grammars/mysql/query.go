@@ -9,14 +9,17 @@ func mysqlOptions() *sql.SqlGrammar {
 		QuoteRune: '`',
     BindingPlaceholder: '?',
 
-
 		// Clauses
-		SelectClause:   []byte("select"),
-		FromClause:     []byte("from"),
-		WhereClause:    []byte("where"),
-		AndClause:      []byte("and"),
-		OrClause:       []byte("or"),
+		SelectClause:   "select",
+		FromClause:     "from",
+		WhereClause:    "where",
+		AndClause:      "and",
+		OrClause:       "or",
 		PaginateClause: "limit %[2]d, %[1]d", // 1 = page, 2 = limit
+
+    NullValue: "null",
+    IsNullValue: "is null",
+    IsNotNullValue: "is not null",
 	}
 }
 

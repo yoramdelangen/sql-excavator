@@ -1,7 +1,6 @@
 package mysql_test
 
 import (
-	"fmt"
 	"testing"
 
 	sql "github.com/yoramdelangen/sql-excavator"
@@ -60,13 +59,31 @@ func TestPaginate(t *testing.T) {
 	// Build query
 	qs, _ := builder.Table("testing").Paginate(1, 100).Sql()
 
-	equals(t, qs, "TestPaginate", "select * from `testing` LIMIT 100, 0")
+	equals(t, qs, "TestPaginate", "select * from `testing` limit 100, 0")
 }
 
 func TestSimpleWhere(t *testing.T) {
 	qs, _ := builder.Table("testing").
 		Where("column", "!=", true).
-		Where("column", "ABC").
+		OrWhere("column", "ABC").
 		Sql()
-	fmt.Println(qs)
+
+	equals(t, qs, "TestSimpleWhere", "select * from `testing` where column != ? or column = ?")
+}
+
+func TestSimpleWhereNull(t *testing.T) {
+	qs, _ := builder.Table("testing").
+		WhereNull("column").
+		OrWhereNull("column2").
+		Sql()
+
+	equals(t, qs, "TestSimpleWhere", "select * from `testing` where column is null or column2 is null")
+}
+func TestSimpleWhereNullWithNotNull(t *testing.T) {
+	qs, _ := builder.Table("testing").
+		WhereNotNull("column").
+		WhereNull("column2").
+		Sql()
+
+	equals(t, qs, "TestSimpleWhere", "select * from `testing` where column is not null and column2 is null")
 }
