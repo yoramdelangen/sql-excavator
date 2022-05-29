@@ -29,7 +29,7 @@ type WhereClause struct {
 	Type        BindingTypeName
 	BooleanType BooleanTypeName
 	Column      string
-	Operator    []byte
+	Operator    string
 }
 
 type Where struct {
@@ -40,7 +40,7 @@ type Where struct {
 }
 
 func NewWhere() Where {
-  return Where{}
+	return Where{}
 }
 
 func (w Where) GetClauses() []WhereClause {
@@ -51,7 +51,7 @@ func (w Where) GetBindings() []interface{} {
 	return w.bindings
 }
 
-func (w Where) And(column string, operator []byte, val interface{}) Where {
+func (w Where) And(column string, operator string, val interface{}) Where {
 	w.wheres = append(w.wheres, WhereClause{
 		Type:        BindingType.BASIC,
 		BooleanType: BooleanType.AND,
@@ -62,7 +62,7 @@ func (w Where) And(column string, operator []byte, val interface{}) Where {
 	return w
 }
 
-func (w Where) Or(column string, operator []byte, val interface{}) Where {
+func (w Where) Or(column string, operator string, val interface{}) Where {
 	w.wheres = append(w.wheres, WhereClause{
 		Type:        BindingType.BASIC,
 		BooleanType: BooleanType.OR,
@@ -77,7 +77,7 @@ func (w Where) Null(column string, boolean BooleanTypeName) Where {
 		Type:        BindingType.NULL,
 		BooleanType: boolean,
 		Column:      column,
-		Operator:    []byte(""),
+		Operator:    "",
 	})
 
 	return w
@@ -88,7 +88,7 @@ func (w Where) NotNull(column string, boolean BooleanTypeName) Where {
 		Type:        BindingType.NOT_NULL,
 		BooleanType: boolean,
 		Column:      column,
-		Operator:    []byte(""),
+		Operator:    "",
 	})
 
 	return w
@@ -99,7 +99,7 @@ func (w Where) Raw(raw string, boolean BooleanTypeName) Where {
 		Type:        BindingType.RAW,
 		BooleanType: boolean,
 		Column:      "",
-		Operator:    []byte(raw),
+		Operator:    raw,
 	})
 
 	return w

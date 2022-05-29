@@ -1,10 +1,9 @@
-package mysql_test
+package grammars_test
 
 import (
 	"testing"
 
 	sql "github.com/yoramdelangen/sql-excavator"
-	"github.com/yoramdelangen/sql-excavator/grammars/mysql"
 )
 
 // enabling colors for testing: 'brew install grc' with guide: https://stackoverflow.com/questions/27242652/colorizing-golang-test-run-output
@@ -22,7 +21,6 @@ func equals(t *testing.T, query string, label string, expecting string) {
 }
 
 func TestMain(t *testing.M) {
-	mysql.Init()
 	builder = sql.NewBuilder("mysql")
 	t.Run()
 }
@@ -68,7 +66,7 @@ func TestSimpleWhere(t *testing.T) {
 		OrWhere("column", "ABC").
 		Sql()
 
-	equals(t, qs, "TestSimpleWhere", "select * from `testing` where column != ? or column = ?")
+	equals(t, qs, "TestSimpleWhere", "select * from `testing` where `column` != ? or `column` = ?")
 }
 
 func TestSimpleWhereNull(t *testing.T) {
@@ -77,13 +75,24 @@ func TestSimpleWhereNull(t *testing.T) {
 		OrWhereNull("column2").
 		Sql()
 
-	equals(t, qs, "TestSimpleWhere", "select * from `testing` where column is null or column2 is null")
+	equals(t, qs, "TestSimpleWhereNull", "select * from `testing` where `column` is null or `column2` is null")
 }
+
 func TestSimpleWhereNullWithNotNull(t *testing.T) {
 	qs, _ := builder.Table("testing").
 		WhereNotNull("column").
 		WhereNull("column2").
 		Sql()
 
-	equals(t, qs, "TestSimpleWhere", "select * from `testing` where column is not null and column2 is null")
+	equals(t, qs, "TestSimpleWhereNullWithNotNull", "select * from `testing` where `column` is not null and `column2` is null")
+}
+
+func TestSimpleInsert(t *testing.T) {
+	qs, _ := builder.Table("testing").
+    Insert(map[string]interface{}{
+      "column1": "ABC",
+      "column2": 100,
+    })
+
+	equals(t, qs, "TestSimpleInsert", "insert into `testing` (`column1`, `column2`) values (?, ?)")
 }

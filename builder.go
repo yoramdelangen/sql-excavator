@@ -14,7 +14,7 @@ func NewBuilder(dialect string) *Builder {
 }
 
 type Builder struct {
-	grammar  SqlGrammar
+	grammar  grammars.SqlGrammar
 	table    string
 	wheres   []grammars.Where
 	join     []grammars.Join
@@ -33,7 +33,7 @@ func (r *Builder) reset() {
 	r.table = ""
 	r.wheres = []grammars.Where{}
 	r.join = []grammars.Join{}
-	r.columns = []string{StarClause}
+	r.columns = []string{grammars.StarClause}
 	r.orderBy = []string{}
 	r.offset = -1
 }
@@ -45,7 +45,7 @@ func (r *Builder) reset() {
 func (r *Builder) Sql() (string, []interface{}) {
 	var b *str.Builder = &str.Builder{}
 
-	b.WriteString(r.grammar.SelectClause)
+	b.WriteString(r.grammar.Select)
 	// TODO: Adding columns
 	r.createSelect(b)
 	r.createFrom(b)
@@ -58,7 +58,7 @@ func (r *Builder) Sql() (string, []interface{}) {
 
 	// TODO: Set WHERE clauses
 	if r.limit != 0 && r.offset > -1 {
-		r.grammar.Paginate(b, r.offset, r.limit)
+		r.grammar.CompilePaginate(b, r.offset, r.limit)
 	}
 
 	return b.String(), r.bindings
@@ -100,10 +100,10 @@ func (r *Builder) Where(column string, args ...interface{}) *Builder {
 	}
 
 	value := args[0]
-	operator := []byte("=")
+	operator := "="
 
 	if len(args) == 2 {
-		operator = []byte(args[0].(string))
+		operator = args[0].(string)
 		value = args[1]
 	}
 
@@ -114,10 +114,10 @@ func (r *Builder) Where(column string, args ...interface{}) *Builder {
 
 func (r *Builder) OrWhere(column string, args ...interface{}) *Builder {
 	value := args[0]
-	operator := []byte("=")
+	operator := "="
 
 	if len(args) == 2 {
-		operator = []byte(args[0].(string))
+		operator = args[0].(string)
 		value = args[1]
 	}
 
@@ -158,28 +158,36 @@ func (r *Builder) Paginate(page uint, limit uint) *Builder {
 	return r
 }
 
+func (r *Builder) Insert(args map[string]interface{}) (string, []interface{}) {
+	var b *str.Builder = &str.Builder{}
+
+  b, bindings := r.grammar.CompileInsert(b, r.table, args)
+
+	return b.String(), bindings
+}
+
 // Create the FROM clause
 func (r *Builder) createFrom(b *str.Builder) {
-	b.WriteRune(Space)
-	b.WriteString(r.grammar.FromClause)
-	b.WriteRune(Space)
+	b.WriteRune(grammars.Space)
+	b.WriteString(r.grammar.From)
+	b.WriteRune(grammars.Space)
 }
 
 // Internal function for adding columns to to grammar state and write it into the strings Builder.
 func (r *Builder) createSelect(b *str.Builder) {
 	if len(r.columns) == 0 {
-		r.columns = []string{StarClause}
+		r.columns = []string{grammars.StarClause}
 	}
 
 	columnLength := len(r.columns)
 	for i, column := range r.columns {
-		b.WriteRune(Space)
+		b.WriteRune(grammars.Space)
 
 		r.grammar.AddColumn(b, column)
 
 		// are there more columns?
 		if i < (columnLength - 1) {
-			b.WriteRune(Separator)
+			b.WriteRune(grammars.Separator)
 		}
 	}
 }
@@ -189,26 +197,26 @@ func (r *Builder) createWhere(b *str.Builder) {
 		return
 	}
 
-	b.WriteRune(Space)
-	b.WriteString(r.grammar.WhereClause)
+	b.WriteRune(grammars.Space)
+	b.WriteString(r.grammar.Where)
 
 	x := 0
 	for _, where := range r.wheres {
 		// Lets start with the basic type and only add with AND
 		for i, clause := range where.GetClauses() {
 			if i == 0 && x > 0 {
-				b.WriteRune(Space)
+				b.WriteRune(grammars.Space)
 
 				if clause.BooleanType == grammars.BooleanType.AND {
-					b.WriteString(r.grammar.AndClause)
+					b.WriteString(r.grammar.And)
 				} else if clause.BooleanType == grammars.BooleanType.OR {
-					b.WriteString(r.grammar.OrClause)
+					b.WriteString(r.grammar.Or)
 				}
 			}
 
-			b.WriteRune(Space)
+			b.WriteRune(grammars.Space)
 
-      hasBindings := r.grammar.CompileWhere(b, clause)
+			hasBindings := r.grammar.CompileWhere(b, clause)
 
 			// continue when type was RAW
 			if hasBindings == false {
